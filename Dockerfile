@@ -20,7 +20,7 @@ RUN groupadd -g ${GID} ${USERNAME} && \
     useradd -m -u ${UID} -g ${GID} -s /bin/bash ${USERNAME} && \
     echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
-# Stage `common_pkg_provider`: Core CLI Tools
+# Stage `common_pkg_provider`: Core CLI Tools & Python and pip
 FROM base AS common_pkg_provider
 
 # 切換回 root 才能安裝套件
@@ -33,7 +33,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     ca-certificates \
     build-essential \
-    && rm -rf /var/lib/apt/lists/*
+    software-properties-common && \
+    add-apt-repository -y ppa:deadsnakes/ppa && \
+    apt-get update && apt-get install -y --no-install-recommends \
+    python3.12 \
+    python3.12-venv \
+    python3.12-dev \
+    python3-pip && \
+    ln -sf /usr/bin/python3.12 /usr/bin/python3 && \
+    ln -sf /usr/bin/pip3 /usr/bin/pip && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # 設定工作目錄與切換使用者
 ARG USERNAME=appuser
