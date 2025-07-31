@@ -1,5 +1,5 @@
 # base image
-FROM ubuntu:24.04
+FROM ubuntu:24.04 AS base
 
 # 避免安裝過程中要求使用者互動輸入
 ENV DEBIAN_FRONTEND=noninteractive
@@ -20,7 +20,23 @@ RUN groupadd -g ${GID} ${USERNAME} && \
     useradd -m -u ${UID} -g ${GID} -s /bin/bash ${USERNAME} && \
     echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
+# Stage `common_pkg_provider`: Core CLI Tools
+FROM base AS common_pkg_provider
+
+# 切換回 root 才能安裝套件
+USER root  
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    vim \
+    git \
+    curl \
+    wget \
+    ca-certificates \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
 # 設定工作目錄與切換使用者
+ARG USERNAME=appuser
 WORKDIR /home/${USERNAME}
 USER ${USERNAME}
 
