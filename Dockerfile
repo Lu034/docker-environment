@@ -65,6 +65,44 @@ RUN ARCH=$(uname -m) && \
     chown -R ${USERNAME}:${USERNAME} $CONDA_DIR && \
     echo ". $CONDA_DIR/etc/profile.d/conda.sh" >> /home/${USERNAME}/.bashrc
 
+# Stage verilator_provider : Build Verilator from Source
+FROM common_pkg_provider AS verilator_provider
+USER root 
+WORKDIR /tmp
+
+# 安裝編譯 Verilator 所需的依賴套件
+RUN apt-get update && apt-get install -y \
+    git \
+    make \
+    autoconf \
+    g++ \
+    bison \
+    flex \
+    perl \
+    libfl2 \
+    libfl-dev \
+    libgoogle-perftools-dev \
+    libjson-perl \
+    libyaml-perl \
+    help2man \
+    --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
+# 從 GitHub 取得指定版本的 Verilator 原始碼並編譯
+ARG VERILATOR_VERSION=v5.032
+RUN git clone https://github.com/verilator/verilator.git \
+    && cd verilator \
+    && git checkout ${VERILATOR_VERSION} \
+    && autoconf \
+    && ./configure \
+    && make -j$(nproc) \
+    && make install \
+    && cd .. \
+    && rm -rf verilator
+
+# 進行驗證，如果 Verilator 沒有正確安裝，建置就會失敗，能及早發現問題。
+RUN verilator --version
+
 # 設定工作目錄與切換使用者
 WORKDIR /home/${USERNAME}
 USER ${USERNAME}
