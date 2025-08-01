@@ -103,6 +103,42 @@ RUN git clone https://github.com/verilator/verilator.git \
 # 進行驗證，如果 Verilator 沒有正確安裝，建置就會失敗，能及早發現問題。
 RUN verilator --version
 
+# Stage systemc_provider : Build SystemC from Source
+FROM verilator_provider AS systemc_provider
+
+WORKDIR /tmp/systemc
+
+# 安裝 SystemC 編譯所需的額外依賴
+# verilator_provider 已經安裝了 g++, make, git 等基本工具
+# 安裝 cmake 和 zlib1g-dev
+RUN apt-get update && apt-get install -y \
+    cmake \
+    zlib1g-dev \
+    --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
+# 下載 SystemC 2.3.4 原始碼並解壓縮
+ARG SYSTEMC_VERSION=2.3.4
+RUN wget https://github.com/accellera-official/systemc/archive/refs/tags/${SYSTEMC_VERSION}.tar.gz \
+    && tar -xzf ${SYSTEMC_VERSION}.tar.gz \
+    && rm ${SYSTEMC_VERSION}.tar.gz
+
+# 進行 CMake configure 與安裝
+RUN cd systemc-${SYSTEMC_VERSION} \
+    && mkdir build \
+    && cd build \
+    && cmake .. \
+       -DCMAKE_INSTALL_PREFIX=/usr/local/systemc-${SYSTEMC_VERSION} \
+       -DCMAKE_CXX_STANDARD=17 \
+    && make -j$(nproc) \
+    && make install \
+    && rm -rf /tmp/systemc-${SYSTEMC_VERSION}
+
+ENV SYSTEMC_HOME=/usr/local/systemc-${SYSTEMC_VERSION} 
+
+ENV LD_LIBRARY_PATH=/usr/local/systemc-${SYSTEMC_VERSION}/lib
+
+
 # 設定工作目錄與切換使用者
 WORKDIR /home/${USERNAME}
 USER ${USERNAME}
