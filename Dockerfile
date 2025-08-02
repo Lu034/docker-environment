@@ -27,6 +27,7 @@ FROM base AS common_pkg_provider
 USER root  
 
 # 安裝 Core CLI Tools & Python and pip
+# build-essential 包含 g++ gcc make ...
 RUN apt-get update && apt-get install -y --no-install-recommends \
     vim \
     git \
@@ -104,12 +105,12 @@ RUN git clone https://github.com/verilator/verilator.git \
 RUN verilator --version
 
 # Stage systemc_provider : Build SystemC from Source
-FROM verilator_provider AS systemc_provider
+FROM common_pkg_provider AS systemc_provider
 
 WORKDIR /tmp/systemc
 
 # 安裝 SystemC 編譯所需的額外依賴
-# verilator_provider 已經安裝了 g++, make, git 等基本工具
+# 已經安裝了 g++, make, git 等基本工具
 # 安裝 cmake 和 zlib1g-dev
 RUN apt-get update && apt-get install -y \
     cmake \
@@ -134,10 +135,23 @@ RUN cd systemc-${SYSTEMC_VERSION} \
     && make install \
     && rm -rf /tmp/systemc-${SYSTEMC_VERSION}
 
-ENV SYSTEMC_HOME=/usr/local/systemc-${SYSTEMC_VERSION} 
 
-ENV LD_LIBRARY_PATH=/usr/local/systemc-${SYSTEMC_VERSION}/lib
+# Stage `final`: Final Image for Application Use
+FROM common_pkg_provider AS final
 
+# 從 `systemc_provider` 複製編譯好的 SystemC 安裝目錄
+ARG SYSTEMC_VERSION=2.3.4
+COPY --from=systemc_provider /usr/local/systemc-${SYSTEMC_VERSION} /usr/local/systemc-${SYSTEMC_VERSION}
+
+# 從 `verilator_provider` 複製編譯好的 Verilator
+# 因為 Verilator 是安裝到 /usr/local/bin 和 /usr/local/share，需要分別複製
+COPY --from=verilator_provider /usr/local/bin /usr/local/bin
+COPY --from=verilator_provider /usr/local/share /usr/local/share
+
+# 設定環境變數
+ARG USERNAME=appuser
+ENV SYSTEMC_HOME=/usr/local/systemc-${SYSTEMC_VERSION}
+ENV LD_LIBRARY_PATH=/usr/local/systemc-${SYSTEMC_VERSION}/lib:$LD_LIBRARY_PATH
 
 # 設定工作目錄與切換使用者
 WORKDIR /home/${USERNAME}
