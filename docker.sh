@@ -1,9 +1,12 @@
 #!/bin/bash
 
-# 定義映像檔與容器名稱
+# 定義映像檔與容器名稱，為腳本的預設值，可以被命令列參數覆蓋
 IMAGE_NAME="aoc2026-env"
 CONTAINER_NAME="aoc2026-container"
 DOCKERFILE="Dockerfile"
+MOUNT_PATHS=()
+USERNAME="appuser"
+HOST_NAME="aoc2026"
 
 # 函數：檢查映像檔是否存在
 # 傳回值：0 (存在) 或 1 (不存在)
@@ -78,37 +81,112 @@ function run_docker_container() {
         build_docker_image
     fi
     
+    local run_options="-it"
+    local exec_options="-it"
+
+    # 如果有指定 username
+    if [[ -n "$USERNAME" ]]; then
+        run_options+=" --user ${USERNAME}"
+        exec_options+=" --user ${USERNAME}"
+    fi
+
+    # 如果有指定 hostname
+    if [[ -n "$HOST_NAME" ]]; then
+        run_options+=" --hostname ${HOST_NAME}"
+    fi
+
+    # 處理 mount paths
+    for path in "${MOUNT_PATHS[@]}"; do
+        echo "Mount: ${MOUNT_PATHS}"
+        run_options+=" -v ${path}"
+    done
+
     # 根據容器狀態做不同處理
     if container_is_running; then
         warning_message "容器 '${CONTAINER_NAME}' 正在運行中。正在進入..."
-        docker exec -it "${CONTAINER_NAME}" bash -c "exec bash"
+        docker exec ${exec_options} "${CONTAINER_NAME}" bash -c "exec bash"
     elif container_exists; then
         warning_message "容器 '${CONTAINER_NAME}' 已存在但處於停止狀態。正在啟動並進入..."
         docker start "${CONTAINER_NAME}"
-        docker exec -it "${CONTAINER_NAME}" bash -c "exec bash"
+        docker exec ${exec_options} "${CONTAINER_NAME}" bash -c "exec bash"
     else
         echo "容器 '${CONTAINER_NAME}' 不存在，正在建立並啟動一個新的..."
         # 這裡可以使用 --rm 參數，以便在容器停止時自動刪除
-        docker run -it --name "${CONTAINER_NAME}" "${IMAGE_NAME}" 
+        docker run ${run_options} --name "${CONTAINER_NAME}" "${IMAGE_NAME}" 
     fi
     
-    if container_is_running || container_exists; then
-      success_message "已退出容器 '${CONTAINER_NAME}'。"
-    else
-      success_message "已進入並退出新的容器 '${CONTAINER_NAME}'。"
-    fi
-
+    success_message "已退出容器 '${CONTAINER_NAME}'。"
     echo "-----------------------"
 }
 
+# 顯示腳本用法
+function show_usage() {
+    echo "Usage: $0 [command] [options]"
+    echo ""
+    echo "Commands:"
+    echo "  run                  運行 Docker 容器並進入其 shell"
+    echo "  build                建立 Docker image"
+    echo ""
+    echo "Options:"
+    echo "  --image-name <name>  指定 image 名稱 (預設: ${IMAGE_NAME})"
+    echo "  --cont-name <name>   指定 container 名稱 (預設: ${CONTAINER_NAME})"
+    echo "  --username <name>    指定進入容器時的用戶名稱 (預設: ${USERNAME})，注意!目前只有appuser 和 root 兩個可用用戶名稱"
+    echo "  --hostname <name>    指定容器的 hostname (預設: ${HOST_NAME})"
+    echo "  --mount <path>       綁定主機目錄到容器內 (可多次使用)"
+    echo "                       格式: /host/path:/container/path"
+    echo "                       範例: --mount "$(pwd)/src:/app/src""
+    echo ""
+}
+
+# Customized Command Line Arguments
+function parse_args() {
+    # 儲存第一個參數為命令
+    COMMAND="$1"
+    shift
+
+    while (( "$#" )); do
+        case "$1" in
+            --image-name)
+                IMAGE_NAME="$2"
+                shift 2
+                ;;
+            --cont-name)
+                CONTAINER_NAME="$2"
+                shift 2
+                ;;
+            --username)
+                USERNAME="$2"
+                shift 2
+                ;;
+            --hostname)
+                HOST_NAME="$2"
+                shift 2
+                ;;
+            --mount)
+                MOUNT_PATHS+=("$2")
+                shift 2
+                ;;
+            *)
+                error_message "未知參數: $1"
+                ;;
+        esac
+    done
+}
 
 # 主程式
-# 根據第一個參數來呼叫對應的函數
-if [ "$1" == "run" ]; then
-    run_docker_container
-elif [ "$1" == "build" ]; then
-    build_docker_image
-else
-    echo "使用方式: ./docker.sh [run|build]"
-    exit 1
-fi
+# 解析參數並執行對應指令
+parse_args "$@"
+
+case "$COMMAND" in
+    run)
+        run_docker_container
+        ;;
+    build)
+        build_docker_image
+        ;;
+    *)
+        show_usage
+        exit 1
+        ;;
+esac
+
