@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 定義映像檔與容器名稱，為腳本的預設值，可以被命令列參數覆蓋
-IMAGE_NAME="aoc2026-env"
+IMAGE_NAME="aoc2026-env:v2"
 CONTAINER_NAME="aoc2026-container"
 DOCKERFILE="Dockerfile"
 MOUNT_PATHS=()

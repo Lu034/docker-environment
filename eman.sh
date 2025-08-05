@@ -10,6 +10,7 @@ Usage:
     eman verilator-example <PATH>   : compile and run the Verilator example(s) with example path, ex: /home/appuser/projects/aoc_lab0/c_cpp/arrays/multidim_array
     eman c-compiler-version         : print the version of default C compiler and the version of GNU Make
     eman c-compiler-example <PATH>  : compile and run the C/C++ example(s) with example path ex: /home/appuser/projects/aoc_lab0/verilog/counter
+    eman systemc-version            : print the version of SystemC
 EOF
 }
 
@@ -59,6 +60,20 @@ eman_c_compiler_example() {
     echo "C/C++ 範例運行完成。"
 }
 
+eman_systemc_version() {
+    echo "--- 正在檢查 SystemC 版本 ---"
+    TEST_FILE="test.cpp"
+    cat > ${TEST_FILE} << EOF
+#include <systemc>
+int sc_main(int argc, char* argv[]) { return 0; }
+EOF
+    g++ -I${SYSTEMC_HOME}/include "${TEST_FILE}" \
+        -L${SYSTEMC_HOME}/lib -lsystemc -o test
+    ./test
+    rm "${TEST_FILE}" test
+    echo "檢查完成。"
+}
+
 # 主邏輯：根據傳入的子指令執行對應的函數
 case "$1" in
     help|--help|-h) 
@@ -77,6 +92,9 @@ case "$1" in
     c-compiler-example)
         shift
         eman_c_compiler_example "$1"
+        ;;
+    systemc-version)
+        eman_systemc_version "$1"
         ;;
     *)
         echo "錯誤：未知的指令 '$1'"

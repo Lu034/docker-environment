@@ -153,6 +153,10 @@ ARG USERNAME=appuser
 ENV SYSTEMC_HOME=/usr/local/systemc-${SYSTEMC_VERSION}
 ENV LD_LIBRARY_PATH=/usr/local/systemc-${SYSTEMC_VERSION}/lib:$LD_LIBRARY_PATH
 
+# 複製 eman.sh 腳本到容器的 PATH 中，使其成為可執行指令
+COPY ./eman.sh /usr/local/bin/eman
+RUN chmod +x /usr/local/bin/eman
+
 # 設定工作目錄與切換使用者
 WORKDIR /home/${USERNAME}
 USER ${USERNAME}
